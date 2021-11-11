@@ -34,9 +34,15 @@
             font-style: italic;
         }
 
+        #formHolder label small {
+            font-style: italic;
+            font-size: 13px;
+        }
+
         #totalCapitalGrowth {
             color: chartreuse;
         }
+
         header {
             font-family: fantasy;
         }
@@ -58,7 +64,7 @@
     <div class="container">
         <div id="formHolder">
             <div class="mb-3">
-                <label for="amount" class="form-label">Amount</label>
+                <label for="amount" class="form-label">Capital Amount</label>
                 <input type="text" class="form-control form-field-calc" id="amount">
             </div>
 
@@ -79,9 +85,16 @@
             <div class="mb-3">
                 <label for="expectedShareValue" class="form-label">
                     Expected Share Value
-                    <small>(optional)</small>
+                    <small>(optional: Must be greater then current share value)</small>
                 </label>
                 <input type="text" class="form-control form-field-calc" id="expectedShareValue">
+            </div>
+
+            <div class="mb-3">
+                <label for="totalNumberOfShares" class="form-label">
+                    Total Number of Shares
+                </label>
+                <input type="text" class="form-control form-field-calc" id="totalNumberOfShares">
             </div>
         </div>
         <br>
@@ -97,12 +110,6 @@
                     Current Price:
                 </label>
                 <output id="curSharePriceOpt">-</output>
-            </div>
-            <div>
-                <label>
-                    Total shares with current price:
-                </label>
-                <output id="totalSharesAtCurPrice">-</output>
             </div>
             <div>
                 <label>
@@ -136,48 +143,107 @@
             return document.getElementById(id);
         }
 
-        function setValueToElm(elm, value) {
-            return elm.textContent = value;
+        function getElmValue(id) {
+            return +getElm(id).value;
+        }
+
+        function setValueToElm(elm, value, isInputElm) {
+            if (isInputElm) {
+                elm.value = value;
+            }
+            elm.textContent = value;
+            return elm;
         }
 
         const rangeElm = getElm('customRange');
         const increaseInPercentageElm = getElm('growth');
-        
+        const expectedShareValueElm = getElm('expectedShareValue');
         rangeElm.value = 0;
 
-        function calculateProfits() {
-            const amount = +getElm('amount').value;
-            const curShareValue = +getElm('curShareValue').value;
-            const expectedShareVal = +getElm('expectedShareValue').value;
-            let increaseInPercentage = +increaseInPercentageElm.value;
+        function converToNumberFixedDigits(value, digits = 5) {
+            return +Number(value).toFixed(`${digits}`);
+        }
 
-            if (!amount|| !curShareValue) {
+        function getCurrentSharePrice() {
+            return getElmValue('curShareValue');
+        }
+
+        function handleGrowthPercent(newValue) {
+            const sharePrice = getCurrentSharePrice();
+
+            if (sharePrice && newValue > sharePrice) {
+                const tmp = newValue - sharePrice;
+                rangeElm.value = converToNumberFixedDigits(tmp * 100 / sharePrice);
+                increaseInPercentageElm.value = rangeElm.value;
+            }
+        }
+
+        function calculateProfits(currentElmId, isAllowedToUpdate = true) {
+            const curShareValue = getCurrentSharePrice();
+
+            if (!curShareValue) {
                 return;
             }
-            
+
+            const totalNumberOfShares = getElmValue('totalNumberOfShares');
+
+            if (totalNumberOfShares &&
+                curShareValue &&
+                (currentElmId == 'curShareValue' || currentElmId == 'totalNumberOfShares')) {
+                let totalAmt = converToNumberFixedDigits(totalNumberOfShares * curShareValue);
+                setValueToElm(getElm('amountOpt'), totalAmt);
+                getElm('amount').value = totalAmt;
+            }
+
+            const amount = getElmValue('amount');
+            const expectedShareVal = getElmValue('expectedShareValue');
+
+            let increaseInPercentage = +increaseInPercentageElm.value;
+
             rangeElm.value = increaseInPercentage;
 
             const totalShares = (amount / curShareValue);
-            const newShareVal = expectedShareVal ? expectedShareVal : +Number(curShareValue + (curShareValue * (increaseInPercentage / 100))).toFixed(7);
-            const diffInSharePrice = +Number(newShareVal - curShareValue).toFixed(7)
+            const newShareVal = converToNumberFixedDigits(curShareValue + (curShareValue * (increaseInPercentage / 100)));
+            const diffInSharePrice = converToNumberFixedDigits(newShareVal - curShareValue);
             const profit = (totalShares * newShareVal) - (totalShares * curShareValue);
 
             setValueToElm(getElm('amountOpt'), amount);
             setValueToElm(getElm('curSharePriceOpt'), curShareValue);
-            setValueToElm(getElm('totalSharesAtCurPrice'), Math.floor(totalShares));
+            setValueToElm(getElm('totalNumberOfShares'), Math.floor(totalShares), true);
             setValueToElm(getElm('newSharePriceOpt'), newShareVal);
+
+            // to stop updating when we change expected value
+            if (isAllowedToUpdate) {
+                setValueToElm(getElm('expectedShareValue'), newShareVal, true);
+            }
+
+            handleGrowthPercent(newShareVal);
+
             setValueToElm(getElm('diffInSharePrice'), diffInSharePrice);
-            setValueToElm(getElm('profitsWithNewSharePrice'), profit);
-            setValueToElm(getElm('totalCapitalGrowth'), amount + profit);
+            setValueToElm(getElm('profitsWithNewSharePrice'), converToNumberFixedDigits(profit));
+            setValueToElm(getElm('totalCapitalGrowth'), converToNumberFixedDigits(amount + profit));
         }
 
-        getElm('formHolder').onchange = function (e) {
+        getElm('expectedShareValue').onkeyup = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleGrowthPercent(+e.target.value);
+            calculateProfits(e.target.id, false);
+        }
+
+        getElm('formHolder').onkeyup = function (e) {
             if (e.target.className.indexOf('form-field-calc') != -1) {
                 if (e.target.id == "customRange") {
                     increaseInPercentageElm.value = rangeElm.value;
                 }
-                calculateProfits();
+                calculateProfits(e.target.id);
             }
+        }
+
+        getElm('customRange').onchange = function (e) {
+            increaseInPercentageElm.value = rangeElm.value;
+            expectedShareValueElm.value = converToNumberFixedDigits(getCurrentSharePrice() + (getCurrentSharePrice() * (rangeElm.value / 100)));
+            calculateProfits(e.target.id);
         }
     </script>
 </body>
