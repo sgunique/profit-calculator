@@ -189,7 +189,7 @@
 
             if (totalNumberOfShares &&
                 curShareValue &&
-                (currentElmId == 'curShareValue' || currentElmId == 'totalNumberOfShares')) {
+                (currentElmId == 'totalNumberOfShares')) {
                 let totalAmt = converToNumberFixedDigits(totalNumberOfShares * curShareValue);
                 setValueToElm(getElm('amountOpt'), totalAmt);
                 getElm('amount').value = totalAmt;
