@@ -70,6 +70,10 @@
             <div class="mb-3">
                 <label for="growth" class="form-label">Growth <small>(%)</small></label>
                 <input type="text" class="form-control form-field-calc" id="growth">
+                <div class="m-4">
+                    <label for="customRange" class="form-label">(Range)</label>
+                    <input type="range" min="0" max="100" class="form-range form-field-calc" id="customRange">
+                </div>
             </div>
 
             <div class="mb-3">
@@ -136,15 +140,22 @@
             return elm.textContent = value;
         }
 
+        const rangeElm = getElm('customRange');
+        const increaseInPercentageElm = getElm('growth');
+        
+        rangeElm.value = 0;
+
         function calculateProfits() {
             const amount = +getElm('amount').value;
             const curShareValue = +getElm('curShareValue').value;
             const expectedShareVal = +getElm('expectedShareValue').value;
-            const increaseInPercentage = +getElm('growth').value;;
+            let increaseInPercentage = +increaseInPercentageElm.value;
 
             if (!amount|| !curShareValue) {
                 return;
             }
+            
+            rangeElm.value = increaseInPercentage;
 
             const totalShares = (amount / curShareValue);
             const newShareVal = expectedShareVal ? expectedShareVal : +Number(curShareValue + (curShareValue * (increaseInPercentage / 100))).toFixed(7);
@@ -160,8 +171,11 @@
             setValueToElm(getElm('totalCapitalGrowth'), amount + profit);
         }
 
-        getElm('formHolder').onkeyup = function (e) {
-            if (e.target.className == 'form-control form-field-calc') {
+        getElm('formHolder').onchange = function (e) {
+            if (e.target.className.indexOf('form-field-calc') != -1) {
+                if (e.target.id == "customRange") {
+                    increaseInPercentageElm.value = rangeElm.value;
+                }
                 calculateProfits();
             }
         }
